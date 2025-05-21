@@ -206,44 +206,132 @@ def fetch_news_list(category):
 
 # Haber özetleme fonksiyonu
 def summarize_news(content, max_length=350, min_length=50):
-    print("content", content)
     if not content or len(content.strip()) < 100:
         return "Özetlenecek yeterli içerik bulunamadı."
     
     try:
-        summarizer = load_summarizer()
-        summary = summarizer(
-            content, 
-            max_length=max_length, 
-            min_length=min_length,
-            num_beams=4, 
-            no_repeat_ngram_size=2,
-            early_stopping=True
-        )[0]['summary_text']
-        return summary
+        # İçeriği temizle ve düzenle
+        cleaned_content = clean_content(content)
+        
+        # Çok uzun metinleri parçalara böl
+        if len(cleaned_content) > 1024:
+            parts = split_content(cleaned_content)
+            summaries = []
+            
+            for part in parts:
+                summarizer = load_summarizer()
+                summary = summarizer(
+                    part, 
+                    max_length=max_length // len(parts), 
+                    min_length=min_length,
+                    num_beams=4, 
+                    no_repeat_ngram_size=2,
+                    early_stopping=True,
+                    do_sample=True,  # Çeşitlilik için
+                    top_k=50,        # En iyi 50 tokeni kullan
+                    top_p=0.95       # Olasılık eşiği
+                )[0]['summary_text']
+                summaries.append(summary)
+            
+            # Parça özetlerini birleştir
+            final_summary = " ".join(summaries)
+            
+            # Son bir kez daha özetle
+            final_summary = summarizer(
+                final_summary,
+                max_length=max_length,
+                min_length=min_length,
+                num_beams=4,
+                no_repeat_ngram_size=2,
+                early_stopping=True
+            )[0]['summary_text']
+            
+            return final_summary
+        else:
+            summarizer = load_summarizer()
+            return summarizer(
+                cleaned_content,
+                max_length=max_length,
+                min_length=min_length,
+                num_beams=4,
+                no_repeat_ngram_size=2,
+                early_stopping=True,
+                do_sample=True,
+                top_k=50,
+                top_p=0.95
+            )[0]['summary_text']
+            
     except Exception as e:
         return f"Özetleme sırasında hata: {str(e)}"
+
+def clean_content(content: str) -> str:
+    """İçeriği temizler ve düzenler."""
+    import re
+    
+    # Gereksiz boşlukları temizle
+    content = ' '.join(content.split())
+    
+    # URL'leri kaldır
+    content = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', content)
+    
+    # Özel karakterleri temizle
+    content = re.sub(r'[^\w\s\.,!?]', '', content)
+    
+    # Çoklu noktalama işaretlerini tekli yap
+    content = re.sub(r'\.+', '.', content)
+    content = re.sub(r'\!+', '!', content)
+    content = re.sub(r'\?+', '?', content)
+    
+    return content.strip()
+
+def split_content(content: str, max_length: int = 1024) -> list:
+    """Uzun içeriği anlamlı parçalara böler."""
+    # Cümlelere böl
+    sentences = content.split('.')
+    parts = []
+    current_part = []
+    current_length = 0
+    
+    for sentence in sentences:
+        sentence = sentence.strip() + '.'
+        if current_length + len(sentence) > max_length:
+            if current_part:
+                parts.append(' '.join(current_part))
+            current_part = [sentence]
+            current_length = len(sentence)
+        else:
+            current_part.append(sentence)
+            current_length += len(sentence)
+    
+    if current_part:
+        parts.append(' '.join(current_part))
+    
+    return parts
 
 # Haberi özetleme ve session state'e kaydetme
 def summarize_and_save(news_id):
     for i, news in enumerate(st.session_state.news_data):
         if news["id"] == news_id:
-            # İçerik henüz çekilmemişse çek
             if not news["content"]:
                 with st.spinner(f"'{news['title']}' haberi çekiliyor..."):
-                    news["content"] = fetch_news_content(news["url"])
+                    content = fetch_news_content(news["url"])
+                    if len(content.strip()) < 100:
+                        content = news["summary"]  # Eğer içerik çekilemediyse özeti kullan
+                    news["content"] = content
                     st.session_state.news_data[i] = news
             
-            # İçerik varsa özetle
             if news["content"]:
                 with st.spinner(f"'{news['title']}' haberi özetleniyor..."):
-                    summary = summarize_news(news["content"])
+                    summary = summarize_news(
+                        news["content"],
+                        max_length=350,  
+                        min_length=100   
+                    )
                     news["ai_summary"] = summary
                     st.session_state.news_data[i] = news
                     st.session_state.summarized_news[news_id] = True
             break
     
-    # Sayfayı yenile
     st.rerun()
 
 # Tüm haberleri özetleme
@@ -268,7 +356,6 @@ def summarize_all_news():
         
         st.session_state.all_summarized = True
     
-    # Sayfayı yenile
     st.rerun()
 
 # Kategori değiştirme fonksiyonu
@@ -279,19 +366,16 @@ def change_category(category):
         st.session_state.summarized_news = {}
         st.session_state.all_summarized = False
         
-        # Yeni kategorideki haberleri çek
         with st.spinner(f"{category} haberleri yükleniyor..."):
             st.session_state.news_data = fetch_news_list(category)
-    
-    # Sayfayı yenile
+
     st.rerun()
 
-# Ana uygulama fonksiyonud0
+# Ana uygulama fonksiyo
 def main():
-    # Uygulama başlığı
+
     st.markdown("<div class='app-header'><h1>📰 Haber Özetleyici</h1></div>", unsafe_allow_html=True)
     
-    # Kategori seçimi
     st.markdown("<div class='category-selector'>", unsafe_allow_html=True)
     cols = st.columns(len(CATEGORIES))
     for i, category in enumerate(CATEGORIES.keys()):
@@ -305,19 +389,15 @@ def main():
                 change_category(category)
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Seçili kategori gösterimi
     st.markdown(f"<h2>📌 {st.session_state.selected_category} Haberleri</h2>", unsafe_allow_html=True)
     
-    # Haberleri çek (eğer henüz çekilmemişse)
     if not st.session_state.news_data:
         with st.spinner(f"{st.session_state.selected_category} haberleri yükleniyor..."):
             st.session_state.news_data = fetch_news_list(st.session_state.selected_category)
     
-    # Tüm haberleri özetleme butonu
     if st.button("🧠 Tüm Haberleri Özetle", type="primary"):
         summarize_all_news()
     
-    # Tüm özetleri göster (eğer özetlenmişse)
     if st.session_state.all_summarized:
         st.markdown("<div class='summary-header'><h2>📋 Tüm Haberler - Özet</h2></div>", unsafe_allow_html=True)
         
@@ -330,9 +410,7 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
     
-    # Haberleri göster
     if st.session_state.news_data:
-        # Her satırda 3 haber kartı
         cols_per_row = 3
         for i in range(0, len(st.session_state.news_data), cols_per_row):
             cols = st.columns(cols_per_row)
@@ -352,12 +430,10 @@ def main():
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Butonlar için normal Streamlit bileşenleri
                         col1, col2 = st.columns(2)
                         with col1:
                             st.markdown(f"<a href='{news['url']}' target='_blank'><button style='width:100%;'>Habere Git</button></a>", unsafe_allow_html=True)
                         with col2:
-                            # Eğer haber özetlenmişse özeti göster, değilse özetle butonunu göster
                             if news["id"] in st.session_state.summarized_news:
                                 if st.button("Özeti Göster", key=f"show_{news['id']}"):
                                     st.info(news["ai_summary"])
