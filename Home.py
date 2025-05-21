@@ -53,6 +53,20 @@ st.markdown("""
         width: 100%;
         background: white;
     }
+    .stButton {
+        width: 100%;
+    }
+    /* Kartlar arasındaki boşluğu ayarla */
+    .card {
+        margin: 0.5rem;
+        min-height: 250px;
+    }
+    /* Responsive tasarım için */
+    @media screen and (max-width: 768px) {
+        .card {
+            margin: 1rem 0;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -67,7 +81,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Sayfalar için kartlar
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown("""
@@ -98,15 +112,28 @@ with col2:
 with col3:
     st.markdown("""
         <div class='card'>
-            <div class='emoji-icon'>🔍</div>
-            <div class='card-title'>Model Detayları</div>
+            <div class='emoji-icon'>📉</div>
+            <div class='card-title'>Finans Duygu Analizi</div>
             <div class='card-text'>
-                Kullanılan yapay zeka modelinin detayları ve özellikleri.
+                Finans haberlerinin duygusal tonunu analiz edin ve piyasa etkisini değerlendirin.
             </div>
         </div>
     """, unsafe_allow_html=True)
-    if st.button("Model Detaylarına Git", key="btn3"):
-        st.switch_page("pages/3_🔍_Model_Detail.py")
+    if st.button("Duygu Analizine Git", key="btn3"):
+        st.switch_page("pages/3_📉_Financial_New_Sentiment.py")
+
+with col4:
+    st.markdown("""
+        <div class='card'>
+            <div class='emoji-icon'>🔍</div>
+            <div class='card-title'>Model Detayları</div>
+            <div class='card-text'>
+                Kullanılan yapay zeka modellerinin teknik detayları ve performans metrikleri.
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    if st.button("Model Detaylarına Git", key="btn4"):
+        st.switch_page("pages/4_🔍_Model_Detail.py")
 
 # Alt bilgi
 st.markdown("""
