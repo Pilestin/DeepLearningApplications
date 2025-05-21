@@ -2,7 +2,7 @@ import streamlit as st
 
 # Sayfa konfigürasyonu
 st.set_page_config(
-    page_title="AI Bot - Ana Sayfa",
+    page_title="Ana Sayfa",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -57,7 +57,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Ana başlık
-st.markdown("<div class='main-header'><h1>🤖 AI Bot - Metin İşleme Asistanı</h1></div>", unsafe_allow_html=True)
+st.markdown("<div class='main-header'><h1>🤖 Metin İşleme Asistanı</h1></div>", unsafe_allow_html=True)
 
 # Kısa açıklama
 st.markdown("""
