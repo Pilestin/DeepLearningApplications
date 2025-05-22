@@ -7,9 +7,8 @@ import os
 
 
 current_path = os.getcwd()
-saved_models_path = "C:/Users/Yasin/Desktop/saved_models"
+saved_models_path = os.path.join(current_path, 'model', 'lstm_model.h5' )
 
-st.write(saved_models_path)
 max_len = 50
 vocab_size = 10000
 labels = ['Negative', 'Neutral', 'Positive']
@@ -17,7 +16,7 @@ labels = ['Negative', 'Neutral', 'Positive']
 # Model ve tokenizer yükle
 @st.cache_resource
 def load_resources():
-    model = load_model(os.path.join(saved_models_path, 'lstm_model.h5'))
+    model = load_model(saved_models_path)
     with open('tokenizer/tokenizer.pkl', 'rb') as f:
         tokenizer = pickle.load(f)
     return model, tokenizer

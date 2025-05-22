@@ -75,7 +75,6 @@ def fetch_news_content(url):
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            st.write(soup.text)
             if "hurriyet.com.tr" in url:
                 article_body = soup.select_one("div.news-content")
                 if article_body:
@@ -93,11 +92,10 @@ def fetch_news_content(url):
 
 # Haber listesi çekme fonksiyonu
 def fetch_news_list(category):
+
     news_list = []
-    
     try:
         cat_info = CATEGORIES[category]
-        
         # Teknoloji kategorisi için özel işleme
         if category == "Teknoloji":
             return [
@@ -205,61 +203,83 @@ def fetch_news_list(category):
         return []
 
 # Haber özetleme fonksiyonu
-def summarize_news(content, max_length=350, min_length=50):
+def summarize_news(content, max_length=300, min_length=80):
+    """Haber içeriğini özetler."""
+    
     if not content or len(content.strip()) < 100:
         return "Özetlenecek yeterli içerik bulunamadı."
     
     try:
-        # İçeriği temizle ve düzenle
+        # İçeriği temizle
         cleaned_content = clean_content(content)
         
-        # Çok uzun metinleri parçalara böl
+        # Çok kısa içerik kontrolü
+        if len(cleaned_content.split()) < 30:
+            return "İçerik çok kısa, özetleme yapılamadı."
+        
+        # Model yükle
+        summarizer = load_summarizer()
+        
+        # İçerik uzunluğuna göre işlem yap
         if len(cleaned_content) > 1024:
-            parts = split_content(cleaned_content)
+            # Uzun içerikleri parçalara böl
+            parts = split_content(cleaned_content, max_length=900)
             summaries = []
             
             for part in parts:
-                summarizer = load_summarizer()
-                summary = summarizer(
-                    part, 
-                    max_length=max_length // len(parts), 
-                    min_length=min_length,
-                    num_beams=4, 
-                    no_repeat_ngram_size=2,
-                    early_stopping=True,
-                    do_sample=True,  # Çeşitlilik için
-                    top_k=50,        # En iyi 50 tokeni kullan
-                    top_p=0.95       # Olasılık eşiği
-                )[0]['summary_text']
-                summaries.append(summary)
+                if len(part.split()) > 10:  # Çok kısa parçaları atla
+                    try:
+                        part_summary = summarizer(
+                            part,
+                            max_length=min(150, max_length // len(parts)),
+                            min_length=min(40, min_length),
+                            num_beams=4,
+                            no_repeat_ngram_size=2,
+                            early_stopping=True,
+                            do_sample=False,  # Deterministik sonuç için
+                            length_penalty=1.0
+                        )[0]['summary_text']
+                        summaries.append(part_summary)
+                    except Exception as e:
+                        continue
             
-            # Parça özetlerini birleştir
-            final_summary = " ".join(summaries)
-            
-            # Son bir kez daha özetle
-            final_summary = summarizer(
-                final_summary,
-                max_length=max_length,
-                min_length=min_length,
-                num_beams=4,
-                no_repeat_ngram_size=2,
-                early_stopping=True
-            )[0]['summary_text']
-            
-            return final_summary
+            if summaries:
+                # Parça özetlerini birleştir
+                combined_summary = " ".join(summaries)
+                
+                # Final özet (eğer çok uzunsa)
+                if len(combined_summary.split()) > max_length // 4:
+                    final_summary = summarizer(
+                        combined_summary,
+                        max_length=max_length,
+                        min_length=min_length,
+                        num_beams=4,
+                        no_repeat_ngram_size=2,
+                        early_stopping=True,
+                        do_sample=False,
+                        length_penalty=1.0
+                    )[0]['summary_text']
+                    return final_summary
+                else:
+                    return combined_summary
+            else:
+                return "Özetleme işlemi başarısız oldu."
+        
         else:
-            summarizer = load_summarizer()
-            return summarizer(
+            # Normal uzunluktaki içerikler için
+            summary = summarizer(
                 cleaned_content,
                 max_length=max_length,
                 min_length=min_length,
                 num_beams=4,
-                no_repeat_ngram_size=2,
+                no_repeat_ngram_size=3,  # Tekrarları azalt
                 early_stopping=True,
-                do_sample=True,
-                top_k=50,
-                top_p=0.95
+                do_sample=False,
+                length_penalty=1.2,  # Daha uzun özetler için
+                repetition_penalty=1.2  # Tekrarları penalize et
             )[0]['summary_text']
+            
+            return summary
             
     except Exception as e:
         return f"Özetleme sırasında hata: {str(e)}"
@@ -268,40 +288,70 @@ def clean_content(content: str) -> str:
     """İçeriği temizler ve düzenler."""
     import re
     
-    # Gereksiz boşlukları temizle
-    content = ' '.join(content.split())
+    if not content:
+        return ""
+    
+    # HTML etiketlerini kaldır
+    content = re.sub(r'<[^>]+>', '', content)
+    
+    # Çoklu boşlukları tek boşluğa çevir
+    content = re.sub(r'\s+', ' ', content)
     
     # URL'leri kaldır
     content = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', content)
     
-    # Özel karakterleri temizle
-    content = re.sub(r'[^\w\s\.,!?]', '', content)
+    # Email adreslerini kaldır
+    content = re.sub(r'\S*@\S*\s?', '', content)
+    
+    # Gereksiz karakterleri temizle ama Türkçe karakterleri koru
+    content = re.sub(r'[^\w\sÇĞıİÖŞÜçğıöşü\.,!?;\-:]', '', content)
     
     # Çoklu noktalama işaretlerini tekli yap
-    content = re.sub(r'\.+', '.', content)
-    content = re.sub(r'\!+', '!', content)
-    content = re.sub(r'\?+', '?', content)
+    content = re.sub(r'\.{2,}', '.', content)
+    content = re.sub(r'\!{2,}', '!', content)
+    content = re.sub(r'\?{2,}', '?', content)
     
-    return content.strip()
+    # Gereksiz kelime tekrarlarını azalt
+    words = content.split()
+    cleaned_words = []
+    prev_word = ""
+    
+    for word in words:
+        if word.lower() != prev_word.lower() or len(cleaned_words) == 0:
+            cleaned_words.append(word)
+        prev_word = word
+    
+    return ' '.join(cleaned_words).strip()
 
-def split_content(content: str, max_length: int = 1024) -> list:
+def split_content(content: str, max_length: int = 900) -> list:
     """Uzun içeriği anlamlı parçalara böler."""
-    # Cümlelere böl
-    sentences = content.split('.')
+    
+    # Önce paragraflara böl
+    paragraphs = [p.strip() for p in content.split('\n') if p.strip()]
+    
+    if not paragraphs:
+        # Paragraf yoksa cümlelere böl
+        sentences = [s.strip() + '.' for s in content.split('.') if s.strip()]
+    else:
+        sentences = []
+        for para in paragraphs:
+            sentences.extend([s.strip() + '.' for s in para.split('.') if s.strip()])
+    
     parts = []
     current_part = []
     current_length = 0
     
     for sentence in sentences:
-        sentence = sentence.strip() + '.'
-        if current_length + len(sentence) > max_length:
+        sentence_length = len(sentence.split())
+        
+        if current_length + sentence_length > max_length // 4:  # Word count based
             if current_part:
                 parts.append(' '.join(current_part))
             current_part = [sentence]
-            current_length = len(sentence)
+            current_length = sentence_length
         else:
             current_part.append(sentence)
-            current_length += len(sentence)
+            current_length += sentence_length
     
     if current_part:
         parts.append(' '.join(current_part))
@@ -312,24 +362,45 @@ def split_content(content: str, max_length: int = 1024) -> list:
 def summarize_and_save(news_id):
     for i, news in enumerate(st.session_state.news_data):
         if news["id"] == news_id:
+            # İçerik henüz çekilmemişse çek
             if not news["content"]:
                 with st.spinner(f"'{news['title']}' haberi çekiliyor..."):
                     content = fetch_news_content(news["url"])
-                    if len(content.strip()) < 100:
-                        content = news["summary"]  # Eğer içerik çekilemediyse özeti kullan
+                    
+                    # İçerik çekilemediği durumda özeti kullanma (özetleme kalitesini düşürür)
+                    if len(content.strip()) < 100 and news["summary"]:
+                        # Özeti kullan ama kullanıcıyı bilgilendir
+                        st.warning("Haber içeriği çekilemedi, mevcut özet kullanılacak.")
+                        content = news["summary"]
+                    
                     news["content"] = content
                     st.session_state.news_data[i] = news
             
-            if news["content"]:
+            # İçerik varsa özetle
+            if news["content"] and len(news["content"].strip()) > 50:
                 with st.spinner(f"'{news['title']}' haberi özetleniyor..."):
                     summary = summarize_news(
                         news["content"],
-                        max_length=350,  
-                        min_length=100   
+                        max_length=300,  # Daha uzun özetler
+                        min_length=80    # Minimum uzunluk
                     )
-                    news["ai_summary"] = summary
+                    
+                    # Özet kalitesi kontrolü
+                    if (summary and 
+                        not summary.startswith("Hata:") and 
+                        len(summary.split()) > 10 and
+                        summary != news.get("summary", "")):  # Orijinal özetle aynı değilse
+                        
+                        news["ai_summary"] = summary
+                        st.session_state.summarized_news[news_id] = True
+                        st.success("Özet başarıyla oluşturuldu!")
+                    else:
+                        st.error("Özet oluşturulamadı veya yetersiz kalitede.")
+                        news["ai_summary"] = "Özet oluşturulamadı."
+                    
                     st.session_state.news_data[i] = news
-                    st.session_state.summarized_news[news_id] = True
+            else:
+                st.error("Özetlenecek yeterli içerik bulunamadı.")
             break
     
     st.rerun()

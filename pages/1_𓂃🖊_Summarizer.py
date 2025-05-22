@@ -17,7 +17,7 @@ def load_summarizer():
 with st.spinner("Model yükleniyor... (ilk çalıştırmada biraz zaman alabilir)"):
     summarizer = load_summarizer()
 
-st.title("🗞️ Haber Özetleyici - Türkçe")
+st.title("🗞️ Metin Özetleyici - Türkçe")
 
 default_text = """
 ChatGPT, OpenAI tarafından geliştirilen bir dil modelidir ve birçok sektörde kullanılmaya başlanmıştır. Eğitimden sağlığa,
@@ -25,7 +25,9 @@ müşteri hizmetlerinden yazılım geliştirmeye kadar farklı alanlarda yapay z
 Bu gelişmeler, insanların iş yapma şeklini değiştirmekte ve üretkenliği artırmaktadır.
 """
 
-text = st.text_area("📌 Haber Metnini Girin:", default_text, height=200)
+
+
+text = st.text_area("📌 Metin Metnini Girin:", default_text, height=200)
 
 with st.sidebar:
     st.subheader("Özetleme Ayarları")

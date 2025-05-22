@@ -51,4 +51,47 @@ with st.container():
         """)
 
     st.markdown("""[ozcangundes/mt5-small-turkish-summarization](https://huggingface.co/ozcangundes/mt5-small-turkish-summarization)""")
-    
+
+with st.container():
+    st.markdown("""### LSTM Modeli""")
+    st.markdown("""
+    **Model Adı**: LSTM-based Sentiment Classifier  
+    **Mimari**: LSTM (Long Short-Term Memory)  
+    **Eğitim Verisi**: Finans haberleri veri seti ([Kaggle](https://www.kaggle.com/datasets/ankurzing/sentiment-analysis-for-financial-news))  
+    **Parametre Sayısı**: ~50K  
+    **Özellikler**:
+    - Tek katmanlı LSTM
+    - Dropout ile overfitting önleme
+    - Çok sınıflı sınıflandırma (olumlu, olumsuz, nötr)
+    """)
+
+    st.markdown("""
+    #### Eğitim Bilgileri:
+    - **Model Mimarisi**: LSTM (Tek katmanlı)
+    - **Parametre Sayısı**: ~50K
+    - **Model Boyutu**: ~200 KB
+    - **Eğitim Süresi**: ~
+    - **Eğitim Aracı**: TensorFlow/Keras
+    - **Epoch**: 50  
+    - **Batch Size**: 32  
+    - **Learning Rate**: 1e-3  
+    - **Max Sequence Length**: 50  
+
+    ---
+
+    #### 🧾 Veri Seti:
+    - **Kaynak**: [Sentiment Analysis for Financial News](https://www.kaggle.com/datasets/ankurzing/sentiment-analysis-for-financial-news)
+    - **Dil**: İngilizce
+    - **Veri Sayısı**: 
+        - 3.877 haber → eğitim  
+        - 969 haber → doğrulama  
+    - **Açıklama**: Finans haberlerini olumlu, olumsuz veya nötr olarak etiketleyen bir veri setidir.
+
+    ---
+
+    #### 🔎 Dikkat Edilmesi Gerekenler:
+    - LSTM modeli, uzun dizilerdeki bağımlılıkları öğrenmek için tasarlanmıştır.
+    - Model, yalnızca eğitim verisindeki kelimeleri öğrenir. Eğitimde görülmeyen kelimeler için `<OOV>` (Out of Vocabulary) token'ı atanır.
+    """)
+
+    st.markdown("""[LSTM Modeli Kaynağı](https://github.com/your-repo/lstm-model)""")

@@ -1,0 +1,2 @@
+Uygulamayı çalıştırmak için
+README.md okuyabilirsiniz.
