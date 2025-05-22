@@ -120,7 +120,7 @@ with col3:
         </div>
     """, unsafe_allow_html=True)
     if st.button("Duygu Analizine Git", key="btn3"):
-        st.switch_page("pages/3_📉_Financial_New_Sentiment.py")
+        st.switch_page("pages/3_📉_Financial_News_Sentiment.py")
 
 with col4:
     st.markdown("""
